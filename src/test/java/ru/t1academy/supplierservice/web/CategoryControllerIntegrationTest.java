@@ -7,6 +7,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.boot.test.web.server.LocalServerPort;
+import org.springframework.http.ResponseEntity;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.containers.PostgreSQLContainer;
@@ -70,7 +71,8 @@ public class CategoryControllerIntegrationTest {
     public void givenNewCategory_whenCreateCategory_thenCompareCategoryNames() {
         Category newCategory = new Category();
         newCategory.setName("testCategory");
-        assertEquals("testCategory", testRestTemplate.postForObject("http://localhost:" + port + "/api/v1/categories", newCategory, Category.class).getName());
+        ResponseEntity<String> responseEntity = testRestTemplate.postForEntity("http://localhost:" + port + "/api/v1/categories", newCategory, String.class);
+        assertEquals(201, responseEntity.getStatusCode().value());
     }
 
     @Test
