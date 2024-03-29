@@ -7,6 +7,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.boot.test.web.server.LocalServerPort;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
@@ -15,19 +16,27 @@ import ru.t1academy.supplierservice.SupplierserviceApplication;
 import ru.t1academy.supplierservice.model.Category;
 
 import java.util.ArrayList;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 @SpringBootTest(classes = SupplierserviceApplication.class, webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 public class CategoryControllerIntegrationTest {
 
+    static PostgreSQLContainer<?> postgreSQLContainer = new PostgreSQLContainer<>("postgres:15-alpine");
+
     @LocalServerPort
-    private int port;
+    protected int port;
 
     @Autowired
     TestRestTemplate testRestTemplate;
 
-    static PostgreSQLContainer<?> postgreSQLContainer = new PostgreSQLContainer<>("postgres:15-alpine");
+    @DynamicPropertySource
+    static void configureProperties(DynamicPropertyRegistry registry) {
+        registry.add("spring.datasource.url", postgreSQLContainer::getJdbcUrl);
+        registry.add("spring.datasource.username", postgreSQLContainer::getUsername);
+        registry.add("spring.datasource.password", postgreSQLContainer::getPassword);
+    }
 
     @BeforeAll
     static void beforeAll() {
@@ -39,25 +48,20 @@ public class CategoryControllerIntegrationTest {
         postgreSQLContainer.stop();
     }
 
-    @DynamicPropertySource
-    static void configureProperties(DynamicPropertyRegistry registry) {
-        registry.add("spring.datasource.url", postgreSQLContainer::getJdbcUrl);
-        registry.add("spring.datasource.username", postgreSQLContainer::getUsername);
-        registry.add("spring.datasource.password", postgreSQLContainer::getPassword);
-    }
-
     @Test
     public void testGetAllCategories() {
-        assertEquals(5, this.testRestTemplate
-                .getForObject("http://localhost:" + port + "/api/v1/categories", ArrayList.class)
-                .size());
+        ResponseEntity<List> responseEntity = this.testRestTemplate.getForEntity("http://localhost:" + port + "/api/v1/categories", List.class);
+        assertEquals(HttpStatus.OK, responseEntity.getStatusCode());
+        assertTrue(responseEntity.hasBody());
+        assertEquals(5, responseEntity.getBody().size());
     }
 
     @Test
     public void givenId_whenGetById_thenGetId() {
-        assertEquals(1, (int) this.testRestTemplate
-                .getForObject("http://localhost:" + port + "/api/v1/categories/1", Category.class)
-                .getId());
+        ResponseEntity<Category> responseEntity = this.testRestTemplate.getForEntity("http://localhost:" + port + "/api/v1/categories/1", Category.class);
+        assertEquals(HttpStatus.OK, responseEntity.getStatusCode());
+        assertTrue(responseEntity.hasBody());
+        assertEquals(1, responseEntity.getBody().getId());
     }
 
     @Test
@@ -68,11 +72,13 @@ public class CategoryControllerIntegrationTest {
     }
 
     @Test
-    public void givenNewCategory_whenCreateCategory_thenCompareCategoryNames() {
+    public void givenNewCategory_whenCreateCategory_thenCheckStatusAndName() {
         Category newCategory = new Category();
         newCategory.setName("testCategory");
-        ResponseEntity<String> responseEntity = testRestTemplate.postForEntity("http://localhost:" + port + "/api/v1/categories", newCategory, String.class);
-        assertEquals(201, responseEntity.getStatusCode().value());
+        ResponseEntity<Category> responseEntity = testRestTemplate.postForEntity("http://localhost:" + port + "/api/v1/categories", newCategory, Category.class);
+        assertEquals(HttpStatus.OK, responseEntity.getStatusCode());
+        assertTrue(responseEntity.hasBody());
+        assertEquals("testCategory", responseEntity.getBody().getName());
     }
 
     @Test
